@@ -1,0 +1,98 @@
+#include <iostream>
+#include <cstddef>
+#include <utility>
+#include <type_traits>
+#include <memory>
+
+class NonCopyable {
+public:
+    NonCopyable(const NonCopyable&) = delete;
+    NonCopyable& operator=(const NonCopyable) = delete;
+
+protected:
+    NonCopyable() = default;
+};
+
+template<
+    class T,
+    class Deleter = std::default_delete<T>>
+class UniquePtr : private NonCopyable {
+public:
+    UniquePtr() {
+        data = std::make_tuple(nullptr, Deleter());
+    }
+
+    UniquePtr(T* ptr2, Deleter d = Deleter()) {
+        std::get<0>(data) = ptr2;
+        std::get<1>(data) = d;
+        ptr2 = nullptr;
+    }
+
+    UniquePtr(UniquePtr&& other) {
+        std::get<0>(data) = std::get<0>(other.data);
+        std::get<1>(data) = std::get<1>(other.data);
+        std::get<0>(other.data) = nullptr;
+    }
+
+    explicit operator bool() {
+        return std::get<0>(data) != nullptr;
+    }
+
+    UniquePtr& operator =(std::nullptr_t x) {
+        this->get_deleter()(std::get<0>(data));
+        std::get<0>(data) = x;
+        return *this;
+    }
+
+    UniquePtr& operator =(UniquePtr&& x) {
+        std::swap(data, x.data);
+        return *this;
+    }
+
+    const T& operator *() const {
+        return *std::get<0>(data);
+    }
+
+    T& operator *() {
+        return *std::get<0>(data);
+    }
+
+    T* operator->() const {
+        return std::get<0>(data);
+    }
+
+    T* release() {
+        T* temp = std::get<0>(data);
+        std::get<0>(data) = nullptr;
+        return temp;
+    }
+
+    void reset(T* x) {
+        this->get_deleter()(std::get<0>(data));
+        std::get<0>(data) = x;
+        x = nullptr;
+    }
+
+    void swap(UniquePtr& other) {
+        std::swap(data, other.data);
+    }
+
+    T* get() const {
+        return std::get<0>(data);
+    }
+
+    Deleter& get_deleter() {
+        return std::get<1>(data);
+    }
+
+    const Deleter& get_deleter() const {
+        return  std::get<1>(data);
+    }
+
+    ~UniquePtr() {
+        this->get_deleter()(std::get<0>(data));
+    }
+
+private:
+    std::tuple<T*, Deleter> data;
+};

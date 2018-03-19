@@ -1,0 +1,96 @@
+#include <iostream>
+
+template<typename T>
+class SharedPtr {
+private:
+    T* ptr;
+    size_t* ref_c;
+
+    void release() {
+        if (*ref_c > 1) {
+            --(*ref_c);
+        }
+
+        if (*ref_c == 1) {
+            delete ptr;
+            delete ref_c;
+        }
+
+        ref_c = new size_t(1);
+    }
+
+    void set(T* p) {
+        if (p != nullptr) {
+            ++(*ref_c);
+        }
+        ptr = p;
+    }
+
+public:
+    SharedPtr() noexcept : ptr(nullptr), ref_c(new size_t(1)) {}
+
+    SharedPtr(T* p) noexcept : ptr(nullptr), ref_c(new size_t(1)) {
+        set(p);
+    }
+
+    SharedPtr(const SharedPtr& other) noexcept : ptr(nullptr) {
+        ref_c = other.ref_c;
+        set(other.ptr);
+    }
+
+    void swap(SharedPtr& other) noexcept {
+        std::swap(ptr, other.ptr);
+        std::swap(ref_c, other.ref_c);
+    }
+
+    SharedPtr(SharedPtr&& other) noexcept {
+        this->swap(other);
+        other.ptr = nullptr;
+        other.ref_c = new size_t(1);
+    }
+
+    void reset(T* p) noexcept {
+        release();
+        set(p);
+    }
+
+    SharedPtr& operator =(T* p) noexcept {
+        this->reset(p);
+        return (*this);
+    }
+
+    SharedPtr& operator =(const SharedPtr& other) noexcept {
+        SharedPtr<T>(other).swap(*this);
+        return (*this);
+    }
+
+    SharedPtr& operator =(SharedPtr&& other) noexcept {
+        SharedPtr<T>(std::move(other)).swap(*this);
+        return (*this);
+    }
+
+    const T& operator *() const noexcept {
+        return *ptr;
+    }
+
+    T& operator *() noexcept {
+        return *ptr;
+    }
+
+    T* operator ->() const noexcept {
+        return ptr;
+    }
+
+    T* get() const {
+        return ptr;
+    }
+
+    explicit operator bool() const noexcept {
+        return ptr != nullptr;
+    }
+
+    ~SharedPtr() noexcept {
+        release();
+        delete ref_c;
+    }
+};
